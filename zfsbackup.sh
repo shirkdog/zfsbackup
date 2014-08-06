@@ -82,7 +82,7 @@ endif
 echo
 echo "Removing yesterday's snapshot from the remote system"
 ssh $REMOTE zfs destroy $DSTPOOL@yesterday
-echo
+
 if ($status != 0) then
         echo
         echo "Error: Unable to remove snapshot from $REMOTE"
