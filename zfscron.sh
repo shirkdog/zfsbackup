@@ -38,7 +38,9 @@ setenv PATH "/sbin:/bin:/usr/sbin:/usr/bin:/usr/games:/usr/local/sbin:/usr/local
 set POOL = "tank/root"
 
 # Verify the current user has permissions for snapshots
-set ZFSSNAP = `zfs allow $POOL|grep snapshot|grep mount|grep create|grep destroy|grep hold|grep send|grep receive|grep rename|head -n1|grep -oE $USER`
+set ZFSSNAP = `zfs allow $POOL|grep snapshot|grep mount|grep create \
+|grep destroy|grep hold|grep send|grep receive|grep rename|head -n1|grep -oE $USER`
+
 if ($ZFSSNAP != $USER) then
 	echo "Error: User account $USER does not have permissions to create/destroy snapshots on $POOL."         
 	exit 13

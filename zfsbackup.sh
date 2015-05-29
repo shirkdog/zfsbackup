@@ -52,7 +52,9 @@ if ($USERTEST == 0) then
 endif
 
 #Test to verify the user account has the proper permissions to create/destroy snaphots
-set ZFSSNAP = `zfs allow $SRCPOOL|grep snapshot|grep mount|grep create|grep destroy|grep hold|grep send|grep receive|grep rename|head -n1|grep -oE $USERNAME`
+set ZFSSNAP = `zfs allow $SRCPOOL|grep snapshot|grep mount|grep create \
+|grep destroy|grep hold|grep send|grep receive|grep rename|head -n1|grep -oE $USERNAME`
+
 if ($ZFSSNAP != $USERNAME) then
 	echo
 	echo "Error: User account $USERNAME does not have permissions to create/destroy snapshots."
@@ -102,7 +104,9 @@ else
 endif
 
 #Test to verify the remote user account has the proper permissions to create/destroy snaphots
-set ZFSSNAP = `ssh -i $SSHKEY $REMOTE zfs allow $DSTPOOL|grep snapshot|grep mount|grep create|grep destroy|grep hold|grep send|grep receive|grep rename|head -n1|grep -oE $USERNAME`
+set ZFSSNAP = `ssh -i $SSHKEY $REMOTE zfs allow $DSTPOOL|grep snapshot|grep mount|grep create \
+|grep destroy|grep hold|grep send|grep receive|grep rename|head -n1|grep -oE $USERNAME`
+
 if ($ZFSSNAP != $USERNAME) then
 	echo
 	echo "Error: User account $USERNAME does not have permissions to create snapshots."
