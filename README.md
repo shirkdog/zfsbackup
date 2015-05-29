@@ -13,6 +13,7 @@ This script will maintain an incremental zfs snapshot that is mirrored on a remo
 
 This script is designed to be run every half hour, and maintains a snapshot for the previous hour.
 To setup this script, add the following to the user's cronjob with permissions to perform snapshots
+
 */30 * * * * /usr/home/test/zfscron.sh
 
 
