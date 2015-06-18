@@ -19,8 +19,8 @@ To setup this script, add the following to the user's cronjob with permissions t
 
 Note:
 ----
-These scripts requires a non-root user to be setup and configured to create/destroy snapshots.
-The following will setup the necessary permissions for the zfs-user manage snapshots for tank:
+These scripts should be used by a non-root user setup and configured to create/destroy snapshots.
+The following will setup the necessary permissions for the zfs-user to manage snapshots for tank:
 
 zfs allow -d zfs-user create,destroy,snapshot,hold,mount,send,rename,receive tank
 
