@@ -25,4 +25,5 @@ These scripts should be used by a non-root user setup and configured to create/d
 The following will setup the necessary permissions for the zfs-user to manage snapshots for zroot:
 
 zfs allow -d zfs-user create,destroy,snapshot,hold,mount,send,rename,receive zroot
+zfs allow -u zfs-user create,compression,destroy,snapshot,snapdir,hold,mount,mountpoint,send,rename,receive,quota,refquota zroot
 
