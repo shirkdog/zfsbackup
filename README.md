@@ -7,8 +7,8 @@ This is a collection of scripts that simplify the management of ZFS snapshots fo
 -------------
 
 This script will maintain an incremental zfs snapshot that is mirrored on a remote system (today/yesterday).
-The script assumes the data set exists on the remote system, and the steps are documented on how to setup
-this functinoality
+The script assumes the dataset exists on the remote system, and the steps are documented on how to setup
+this functinoality if the remote dataset is missing.
 
 *zfscron.sh
 -----------
