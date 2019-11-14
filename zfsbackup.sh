@@ -1,11 +1,16 @@
 #!/bin/csh
 #
 # Daily ZFS Backup Script
-# Version 0.8
+# Version 1.0
 #
-# Based on FreeBSD 10.1
+# Works on FreeBSD 10+
+# Based on the FreeBSD Handbook entry for zfs send with ssh
+# https://www.freebsd.org/doc/handbook/zfs-zfs.html#zfs-send-ssh
 #
-# Copyright (c) 2015, Michael Shirk
+# NOTE: This script assumes a snapshot has been created and
+# already sent over to the remote system before this script is run.
+#
+# Copyright (c) 2019, Michael Shirk
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -32,8 +37,8 @@
 setenv PATH "/sbin:/bin:/usr/sbin:/usr/bin:/usr/games:/usr/local/sbin:/usr/local/bin:/root/bin"
 
 #Modify the variables for your configuration
-set SRCPOOL = "tank/usr/home"
-set DSTPOOL = "tank/homeback"
+set SRCPOOL = "zroot/usr/home/zfs-user"
+set DSTPOOL = "zroot/homeback"
 set USERNAME = "zfs-user"
 set REMOTE = ""
 #Set this to the SSH key to be used.
@@ -46,7 +51,7 @@ if ($USERTEST == 0) then
 	echo "Error: root user should not run this script. Setup a non-root user and grant"
         echo "the necessary zfs permissions with zfs allow."
 	echo "Example:"
-        echo "# zfs allow -d zfs-user create,destroy,snapshot,hold,mount,send,rename,receive tank/usr/home"
+        echo "# zfs allow -u $USERNAME create,compression,destroy,snapshot,snapdir,hold,mount,mountpoint,send,rename,receive,quota,refquota $SRCPOOL"
 	echo
 	exit 13
 endif
@@ -59,6 +64,8 @@ if ($ZFSSNAP != $USERNAME) then
 	echo
 	echo "Error: User account $USERNAME does not have permissions to create/destroy snapshots."
         echo "Adjust the permissions on $SRCPOOL and try again."
+	echo "Example:"
+        echo "# zfs allow -u $USERNAME create,compression,destroy,snapshot,snapdir,hold,mount,mountpoint,send,rename,receive,quota,refquota $SRCPOOL"
 	echo
 	exit 13
 endif
@@ -78,7 +85,7 @@ endif
 #Test to ensure the remote system is available
 echo
 echo "Testing connectivity to $REMOTE"
-set TEST = `ssh -i $SSHKEY $REMOTE hostname`
+set TEST = `ssh -i $SSHKEY $USERNAME@$REMOTE hostname`
 
 if ($status != 0) then
         echo
@@ -92,25 +99,45 @@ endif
 #Test to ensure the DSTPOOL exists, otherwise the zfs send will fail
 echo
 echo "Validating the destination zpool $DSTPOOL exists"
-set TEST = `ssh -i $SSHKEY $REMOTE zfs list | grep $DSTPOOL`
+set TEST = `ssh -i $SSHKEY $USERNAME@$REMOTE zfs list | grep $DSTPOOL`
 if ($status != 0) then
         echo
-        echo "Error: $DSTPOOL pool does not exist. You need to run the following before using this script:"
-        echo "zfs send -R $SRCPOOL@today | ssh $REMOTE zfs recv -F $DSTPOOL"
-        echo
+	echo "Error: $DSTPOOL does not exist. You have to run the following commands on $REMOTE to have"
+	echo "an initial setup of the dataset before using this backup script"
+	echo 
+	echo "# zfs create $DSTPOOL"
+        echo "# zfs allow -u $USERNAME create,compression,destroy,snapshot,snapdir,hold,mount,mountpoint,send,rename,receive,quota,refquota $DSTPOOL"
+	echo "# zfs snapshot -r $SRCPOOL@today"
+	echo "# zfs rename -r $SRCPOOL@today @yesterday"
+	echo "# zfs snapshot -r $SRCPOOL@today"
+	echo "# zfs send -R -i $SRCPOOL@yesterday $SRCPOOL@today | ssh -i $SSHKEY $USERNAME@$REMOTE zfs recv -vF $DSTPOOL"
+	echo 
         exit 13
 else
         echo "Success."
 endif
 
 #Test to verify the remote user account has the proper permissions to create/destroy snaphots
-set ZFSSNAP = `ssh -i $SSHKEY $REMOTE zfs allow $DSTPOOL|grep snapshot|grep mount|grep create \
+set ZFSSNAP = `ssh -i $SSHKEY $USERNAME@$REMOTE zfs allow $DSTPOOL|grep snapshot|grep mount|grep create \
 |grep destroy|grep hold|grep send|grep receive|grep rename|head -n1|grep -oE $USERNAME`
 
 if ($ZFSSNAP != $USERNAME) then
 	echo
 	echo "Error: User account $USERNAME does not have permissions to create snapshots."
         echo "Adjust the permissions on the $DSTPOOL dataset on $REMOTE and try again."
+	echo "Example:"
+        echo "# zfs allow -u $USERNAME create,destroy,snapshot,hold,mount,mountpoint,send,rename,receive,quota,refquota $DSTPOOL"
+	echo
+	exit 13
+endif
+
+#Test to verify the vfs.usermount setting is correct
+set VFSMOUNT=`ssh -i $SSHKEY $USERNAME@$REMOTE sysctl -n vfs.usermount`
+
+if ($VFSMOUNT != 1) then
+	echo
+	echo "Error: Unprivileged users must have permissions to mount file systems."
+	echo "Ensure vfs.usermount is set to 1 on the $REMOTE system."
 	echo
 	exit 13
 endif
@@ -118,23 +145,24 @@ endif
 #Everything appears to be working, now to continue with the backup
 echo
 echo "Removing yesterday's snapshot from the remote system"
-ssh -i $SSHKEY $REMOTE zfs destroy $DSTPOOL@yesterday
+ssh -i $SSHKEY $USERNAME@$REMOTE zfs destroy $DSTPOOL@yesterday
 if ($status != 0) then
         echo
-        echo "Error: Unable to remove snapshot from $REMOTE"
-        echo
-        exit 13
+        echo "Error: Unable to remove yesterday snapshot from $REMOTE system."
+	echo
+	exit 13
 else
         echo "Success."
 endif
+
 echo
 echo "Removing yesterday's snapshot from the local system"
 zfs destroy $SRCPOOL@yesterday
 if ($status != 0) then
         echo
-        echo "Error: Unable to remove snapshot from local system"
+        echo "Error: Unable to remove yesterday snapshot from local system."
         echo
-        exit 13
+	exit 13
 else
         echo "Success."
 endif
@@ -145,7 +173,7 @@ echo "Renaming snapshot on the local system"
 zfs rename -r $SRCPOOL@today @yesterday
 if ($status != 0) then
         echo
-        echo "Error: Unable to rename snapshot on local system"
+        echo "Error: Unable to rename today snapshot on local system"
         echo
         exit 13
 else
@@ -154,10 +182,10 @@ endif
 
 echo
 echo "Renaming snapshot on the remote system"
-ssh -i $SSHKEY $REMOTE zfs rename -r $DSTPOOL@today @yesterday
+ssh -i $SSHKEY $USERNAME@$REMOTE zfs rename -r $DSTPOOL@today @yesterday
 if ($status != 0) then
         echo
-        echo "Error: Unable to rename snapshot on $REMOTE"
+        echo "Error: Unable to rename today snapshot on $REMOTE"
         echo
         exit 13
 else
@@ -170,7 +198,7 @@ echo "Running snapshot for today";
 zfs snapshot -r $SRCPOOL@today
 if ($status != 0) then
         echo
-        echo "Error: Unable to create snapshot on local system"
+        echo "Error: Unable to create today snapshot on local system"
         echo
         exit 13
 else
@@ -180,10 +208,10 @@ endif
 #Sending the backup of the snapshot to the remote system
 echo
 echo "Backup snapshot for today";
-zfs send -R -i $SRCPOOL@yesterday $SRCPOOL@today | ssh -i $SSHKEY $REMOTE zfs recv -F $DSTPOOL
+zfs send -R -i $SRCPOOL@yesterday $SRCPOOL@today | ssh -i $SSHKEY $USERNAME@$REMOTE zfs recv -vF $DSTPOOL
 if ($status != 0) then
         echo
-        echo "Error: Unable to send snapshot to $REMOTE"
+        echo "Error: Unable to send snapshots to $REMOTE"
         echo
         exit 13
 else
