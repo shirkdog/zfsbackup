@@ -1,7 +1,7 @@
 #!/bin/csh
 #
 # Daily ZFS Backup Script
-# Version 1.0
+# Version 1.1
 #
 # Works on FreeBSD 10+
 # Based on the FreeBSD Handbook entry for zfs send with ssh
@@ -9,6 +9,8 @@
 #
 # NOTE: This script assumes a snapshot has been created and
 # already sent over to the remote system before this script is run.
+# If this snapshot is not available, the script provides the steps
+# you need to create the initial snapshots.
 #
 # Copyright (c) 2019, Michael Shirk
 # All rights reserved.
@@ -102,15 +104,17 @@ echo "Validating the destination zpool $DSTPOOL exists"
 set TEST = `ssh -i $SSHKEY $USERNAME@$REMOTE zfs list | grep $DSTPOOL`
 if ($status != 0) then
         echo
-	echo "Error: $DSTPOOL does not exist. You have to run the following commands on $REMOTE to have"
+	echo "Error: $DSTPOOL does not exist. You have to run the following commands on to have"
 	echo "an initial setup of the dataset before using this backup script"
 	echo 
-	echo "# zfs create $DSTPOOL"
+	echo "Run the following on $REMOTE"
+	echo "# zfs create -o mountpoint=none $DSTPOOL"
         echo "# zfs allow -u $USERNAME create,compression,destroy,snapshot,snapdir,hold,mount,mountpoint,send,rename,receive,quota,refquota $DSTPOOL"
+	echo "Run the following on your local system"
 	echo "# zfs snapshot -r $SRCPOOL@today"
 	echo "# zfs rename -r $SRCPOOL@today @yesterday"
 	echo "# zfs snapshot -r $SRCPOOL@today"
-	echo "# zfs send -R -i $SRCPOOL@yesterday $SRCPOOL@today | ssh -i $SSHKEY $USERNAME@$REMOTE zfs recv -vF $DSTPOOL"
+	echo "# zfs send -vR -i $SRCPOOL@yesterday $SRCPOOL@today | ssh -i $SSHKEY $USERNAME@$REMOTE zfs recv -vF $DSTPOOL"
 	echo 
         exit 13
 else
