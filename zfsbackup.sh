@@ -20,9 +20,9 @@
 # WARNING: With this backup script setup, the backed-up dataset
 # will not be mountable, you have the choice of either cloning the
 # dataset to access your data, or temporarily mounting your dataset
-# and getting access to your data. However, when you mount the dataset,
-# you will need to rollback to the @today snapshot before proceeding
-# with backups.
+# and getting access to your data. You can use the following to
+# mount the data set read only:
+# zfs mount -oro dataset /mnt
 #
 # Copyright (c) 2021, Michael Shirk
 # All rights reserved.
